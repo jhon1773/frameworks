@@ -5,19 +5,30 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch: {}
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Run the job inside a container image that already includes Bun to avoid
+    # installer / network issues observed when downloading bun.sh from the runner.
+    # If this image doesn't exist or you prefer another source, replace with a
+    # different image that bundles Bun (e.g. ghcr.io/oven-sh/bun:latest).
+    container:
+      image: oven/bun:latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Bun (stable)
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: stable
+      - name: Ensure bun is available
+        run: |
+          # Verify bun exists in the container image
+          if ! command -v bun >/dev/null 2>&1; then
+            echo "bun not found in container image; failing early"
+            exit 2
+          fi
+          bun --version
 
       - name: Cache bun and dependencies
         uses: actions/cache@v4
@@ -26,12 +37,15 @@ jobs:
             ~/.bun
             .bun
             node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb','package.json') }}
+          # Cache based on the subproject package.json / bun.lockb
+          key: ${{ runner.os }}-bun-${{ hashFiles('pds006-frameworks-20252/**/bun.lockb','pds006-frameworks-20252/package.json') }}
           restore-keys: |
             ${{ runner.os }}-bun-
 
       - name: Install dependencies
+        working-directory: pds006-frameworks-20252
         run: bun install
 
       - name: Run tests
+        working-directory: pds006-frameworks-20252
         run: bun test
