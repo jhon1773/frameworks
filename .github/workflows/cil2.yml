@@ -37,12 +37,15 @@ jobs:
             ~/.bun
             .bun
             node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb','package.json') }}
+          # Cache based on the subproject package.json / bun.lockb
+          key: ${{ runner.os }}-bun-${{ hashFiles('pds006-frameworks-20252/**/bun.lockb','pds006-frameworks-20252/package.json') }}
           restore-keys: |
             ${{ runner.os }}-bun-
 
       - name: Install dependencies
+        working-directory: pds006-frameworks-20252
         run: bun install
 
       - name: Run tests
+        working-directory: pds006-frameworks-20252
         run: bun test
