@@ -5,6 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch: {}
 
 jobs:
   test:
@@ -14,10 +15,51 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Bun (stable)
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: stable
+      - name: Install Bun (robust)
+        # Use the official installer script with retries so we don't fail on transient 400/5xx
+        run: |
+          set -euo pipefail
+          echo "Runner info:"
+          uname -a || true
+          lsb_release -a || true
+
+          try_install() {
+            echo "Attempting to install Bun (installer)..."
+            curl -fsSL https://bun.sh/install | bash -s -- --no-modify-path || return 1
+            return 0
+          }
+
+          # try up to 3 times (handles transient HTTP errors from bun.sh)
+          n=0
+          until [ $n -ge 3 ]
+          do
+            if try_install; then
+              echo "Bun installed"
+              break
+            fi
+            n=$((n+1))
+            echo "Install attempt $n failed, retrying in 3s..."
+            sleep 3
+          done
+
+          if ! command -v bun >/dev/null 2>&1; then
+            echo "Installer failed; attempting fallback download (explicit tarball)..."
+            ARCH=$(uname -m)
+            # map common arch names to bun release naming
+            case "$ARCH" in
+              x86_64|amd64) A=linux-x64;;
+              aarch64|arm64) A=linux-aarch64;;
+              *) A=linux-x64;;
+            esac
+            URL="https://bun.sh/download/stable/$A"
+            echo "Downloading from: $URL"
+            mkdir -p $HOME/.bun
+            curl -fsSL "$URL" | tar -xz -C $HOME/.bun --strip-components=1
+          fi
+
+          # Ensure bun is on PATH for remaining steps
+          echo "BUN_INSTALL_DIR=$HOME/.bun/bin" >> $GITHUB_ENV
+          echo "$HOME/.bun/bin" >> $GITHUB_PATH
 
       - name: Cache bun and dependencies
         uses: actions/cache@v4
