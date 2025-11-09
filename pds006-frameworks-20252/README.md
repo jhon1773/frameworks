@@ -27,3 +27,7 @@ bun run dev
 ```
 
 Open http://localhost:3000/ with your browser to see the result.
+
+## Branch kevin
+
+Short-lived feature branch used for collaborative fixes and CI adjustments. See `WORKING_ON_KEVIN.md` for notes.
