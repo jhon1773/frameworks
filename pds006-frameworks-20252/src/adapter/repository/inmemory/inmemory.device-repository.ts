@@ -14,19 +14,23 @@ export class InMemoryDeviceRepository implements DeviceRepository {
   }
 
   async getMedicalDevices(_criteria: DeviceCriteria): Promise<MedicalDevice[]> {
-    return Array.from(this.medicalDevices.values())
+    const items = Array.from(this.medicalDevices.values())
+    return this.applyCriteria(items, _criteria) as MedicalDevice[]
   }
 
   async getComputers(_criteria: DeviceCriteria): Promise<Computer[]> {
-    return Array.from(this.computers.values())
+    const items = Array.from(this.computers.values())
+    return this.applyCriteria(items, _criteria) as Computer[]
   }
 
   async getFrequentComputers(_criteria: DeviceCriteria): Promise<FrequentComputer[]> {
-    return Array.from(this.frequentComputers.values())
+    const items = Array.from(this.frequentComputers.values())
+    return this.applyCriteria(items, _criteria) as FrequentComputer[]
   }
 
   async getEnteredDevices(_criteria: DeviceCriteria): Promise<EnteredDevice[]> {
-    return Array.from(this.enteredDevices.values())
+    const items = Array.from(this.enteredDevices.values())
+    return this.applyCriteria(items, _criteria) as EnteredDevice[]
   }
 
   async checkinComputer(computer: Computer): Promise<Computer> {
@@ -119,5 +123,63 @@ export class InMemoryDeviceRepository implements DeviceRepository {
       updatedAt: new Date(),
       type: "medical-device"
     }
+  }
+
+  // Apply filtering, sorting and pagination based on DeviceCriteria
+  private applyCriteria<T extends Record<string, any>>(items: T[], criteria?: DeviceCriteria): T[] {
+    if (!criteria) return items
+
+    let out = items.slice()
+
+    // Filtering
+    if (criteria.filterBy && criteria.filterBy.field) {
+      const path = criteria.filterBy.field.split('.')
+      const value = criteria.filterBy.value
+      out = out.filter(item => {
+        let cur: any = item
+        for (const p of path) {
+          if (cur == null) return false
+          cur = cur[p]
+        }
+        return cur === value
+      })
+    }
+
+    // Sorting
+    if (criteria.sortBy && criteria.sortBy.field) {
+      const path = criteria.sortBy.field.split('.')
+      out.sort((a, b) => {
+        const va = this.getFieldValue(a, path)
+        const vb = this.getFieldValue(b, path)
+
+        // Handle Date objects
+        const na = va instanceof Date ? va.getTime() : va
+        const nb = vb instanceof Date ? vb.getTime() : vb
+
+        if (na == null && nb == null) return 0
+        if (na == null) return criteria.sortBy!.isAscending ? -1 : 1
+        if (nb == null) return criteria.sortBy!.isAscending ? 1 : -1
+
+        if (na < nb) return criteria.sortBy!.isAscending ? -1 : 1
+        if (na > nb) return criteria.sortBy!.isAscending ? 1 : -1
+        return 0
+      })
+    }
+
+    // Pagination
+    const offset = criteria.offset ?? 0
+    const limit = criteria.limit ?? out.length
+    out = out.slice(offset, offset + limit)
+
+    return out
+  }
+
+  private getFieldValue(obj: any, path: string[]): any {
+    let cur = obj
+    for (const p of path) {
+      if (cur == null) return undefined
+      cur = cur[p]
+    }
+    return cur
   }
 }
