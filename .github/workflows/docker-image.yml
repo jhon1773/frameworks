@@ -68,8 +68,8 @@ jobs:
         uses: docker/login-action@v2
         with:
           registry: framedev2.azurecr.io
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+          username: ${{ secrets.ACR_NAME_JOHAMANRIQUE10 }}
+          password: ${{ secrets.ACR_PASSWORD_JOHAMANRIQUE10 }}
 
       - name: Build and Push to ACR
         uses: docker/build-push-action@v4
