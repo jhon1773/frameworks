@@ -13,10 +13,6 @@ RUN bun install --frozen-lockfile
 # Copiar el resto del proyecto
 COPY . .
 
-# Crear build si existe (TS → JS, bundling, etc)
-RUN bun run build --if-present
-
-
 # -----------------------------
 # Stage 2: Runtime
 # -----------------------------
