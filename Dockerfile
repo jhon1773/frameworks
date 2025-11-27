@@ -1,7 +1,7 @@
 # -----------------------------
 # Stage 1: Builder
 # -----------------------------
-FROM oven/bun:latest AS builder
+FROM oven/bun:1.0.0 AS builder  # Usar versión específica en lugar de latest
 WORKDIR /app
 
 # Copiar manifiestos para cache eficiente
@@ -20,7 +20,7 @@ RUN bun run build --if-present
 # -----------------------------
 # Stage 2: Runtime
 # -----------------------------
-FROM oven/bun:latest
+FROM oven/bun:1.0.0  # Usar versión específica en lugar de latest
 WORKDIR /app
 
 # Copiar resultados del build
@@ -30,5 +30,4 @@ ENV NODE_ENV=production
 EXPOSE 3000
 
 # Ejecutar start → test → fallback
-# NOTE: CMD fixed to a single-line JSON-array to avoid Dockerfile parse errors
 CMD ["sh", "-c", "bun run start 2>/dev/null || bun test 2>/dev/null || node index.js 2>/dev/null || tail -f /dev/null"]
