@@ -23,7 +23,7 @@ WORKDIR /app
 COPY --from=builder /app ./
 
 ENV NODE_ENV=production
-EXPOSE 3000
+EXPOSE 443
 
 # Ejecutar start → test → fallback
 CMD ["sh", "-c", "bun run start 2>/dev/null || bun test 2>/dev/null || node index.js 2>/dev/null || tail -f /dev/null"]
