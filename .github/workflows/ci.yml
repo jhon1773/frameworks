@@ -1,4 +1,4 @@
-name: CI & CD
+name: Docker Image CI/CD
 
 on:
   push:
@@ -20,23 +20,8 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Cache NPM
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json','**/package.json') }}
-          restore-keys: ${{ runner.os }}-node-
-
-      - name: Install dependencies (npm)
+      - name: Install dependencies
         run: npm ci
-
-      - name: TypeScript check (if available)
-        run: |
-          if npx -y tsc --noEmit; then
-            echo "TypeScript check passed"
-          else
-            echo "No TypeScript compiler available or typecheck failed (continuing)"
-          fi
 
       - name: Build (if present)
         run: npm run build --if-present
@@ -44,63 +29,29 @@ jobs:
       - name: Run tests (if present)
         run: npm test --if-present
 
-      - name: Upload build artifacts (optional)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-files
-          path: |
-            dist
-            build
-            .
-
   bun-tests:
-    name: Bun tests (subproject)
+    name: Bun tests
     runs-on: ubuntu-latest
     container:
       image: oven/bun:latest
     needs: node-ci
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Ensure bun is available
-        run: |
-          if ! command -v bun >/dev/null 2>&1; then
-            echo "bun not found in container image; failing early"
-            exit 2
-          fi
-          bun --version
-
-      - name: Cache bun and dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun
-            .bun
-            pds006-frameworks-20252/node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('pds006-frameworks-20252/**/bun.lockb','pds006-frameworks-20252/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+      - name: Ensure bun available
+        run: bun --version
 
       - name: Install dependencies (bun)
-        working-directory: pds006-frameworks-20252
         run: bun install
 
-      - name: Run tests (bun)
-        working-directory: pds006-frameworks-20252
+      - name: Run bun tests
         run: bun test
 
-  # NOTE: Se añadió hadolint + build-check para validar Dockerfile antes del push
-  docker-build-and-push:
-    name: Build and Push Docker image (GHCR)
+  docker-validate:
+    name: Validate Dockerfile (hadolint + buildx)
     runs-on: ubuntu-latest
     needs: [node-ci, bun-tests]
-    if: github.event_name == 'push' && contains(fromJson('["refs/heads/main","refs/heads/master"]'), github.ref)
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -110,12 +61,29 @@ jobs:
         with:
           dockerfile: ./Dockerfile
 
-      - name: Quick Dockerfile parse/build check
-        run: |
-          # Build only the builder stage to validate Dockerfile parse and basic build steps quickly
-          docker build --file ./Dockerfile --target builder --pull --no-cache --progress=plain .
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
 
-      - name: Set up QEMU (for cross-platform builds)
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Quick buildx validate (builder stage)
+        run: docker buildx build --file ./Dockerfile --target builder --load --no-cache --progress=plain .
+
+  docker-build-and-push:
+    name: Build and Push Docker image (GHCR)
+    runs-on: ubuntu-latest
+    needs: [node-ci, bun-tests, docker-validate]
+    if: "github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')"
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
       - name: Set up Docker Buildx
@@ -128,7 +96,7 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build and push multi-platform image
         uses: docker/build-push-action@v4
         with:
           context: .
