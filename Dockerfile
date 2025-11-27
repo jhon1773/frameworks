@@ -1,7 +1,7 @@
 # -----------------------------
 # Stage 1: Builder
 # -----------------------------
-FROM oven/bun:1.0.0 AS builder  # Usar versión específica en lugar de latest
+FROM oven/bun:1.2.15 AS builder
 WORKDIR /app
 
 # Copiar manifiestos para cache eficiente
@@ -20,7 +20,7 @@ RUN bun run build --if-present
 # -----------------------------
 # Stage 2: Runtime
 # -----------------------------
-FROM oven/bun:1.0.0  # Usar versión específica en lugar de latest
+FROM oven/bun:1.2.15
 WORKDIR /app
 
 # Copiar resultados del build
