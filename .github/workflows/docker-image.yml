@@ -2,9 +2,7 @@ name: Docker Image CI/CD
 
 on:
   push:
-    branches: [ main, master ]
   pull_request:
-    branches: [ main, master ]
   workflow_dispatch: {}
 
 jobs:
@@ -23,7 +21,7 @@ jobs:
       - name: Cache NPM
         uses: actions/cache@v4
         with:
-          path: node_modules
+          path: "~/.npm"
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json','**/package.json') }}
           restore-keys: ${{ runner.os }}-node-
 
@@ -81,8 +79,6 @@ jobs:
     name: Build and Push Docker image (GHCR)
     runs-on: ubuntu-latest
     needs: [node-ci, bun-tests, docker-validate]
-    # Triggering is handled by `on.push.branches` at the top of the workflow.
-    # (Removed job-level `if` to avoid YAML/parse issues.)
     permissions:
       contents: read
       packages: write
